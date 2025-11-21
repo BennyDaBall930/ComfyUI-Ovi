@@ -1,0 +1,24 @@
+opencv-python>=4.9.0.80
+diffusers>=0.31.0
+transformers>=4.49.0
+tokenizers>=0.20.3
+accelerate>=1.1.1
+tqdm
+imageio
+easydict
+ftfy
+dashscope
+numpy>=1.23.5
+scipy
+librosa
+omegaconf
+pandas
+open-clip-torch
+protobuf
+sentencepiece
+huggingface_hub>=0.25.0
+pydub>=0.25.1
+--extra-index-url https://download.pytorch.org/whl/nightly/rocm6.2/
+torch>=2.5.0.dev
+torchvision>=0.20.0.dev
+torchaudio>=2.5.0.dev
