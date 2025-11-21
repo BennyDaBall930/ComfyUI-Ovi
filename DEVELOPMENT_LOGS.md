@@ -10,9 +10,10 @@ This document aggregates all the research, status updates, and victories from th
 
 1.  [All-GPU Mode & Memory Fixes](#1-all-gpu-mode--memory-fixes)
 2.  [GGUF Quantization Saga](#2-gguf-quantization-saga)
-3.  [Ovi 1.1 Upgrades](#3-ovi-11-upgrades)
-4.  [FP8 & Model Availability](#4-fp8--model-availability)
-5.  [Node Loading Crisis](#5-node-loading-crisis)
+3.  [Tiled VAE Decoding](#3-tiled-vae-decoding)
+4.  [Ovi 1.1 Upgrades](#4-ovi-11-upgrades)
+5.  [FP8 & Model Availability](#5-fp8--model-availability)
+6.  [Node Loading Crisis](#6-node-loading-crisis)
 
 ---
 
@@ -74,7 +75,32 @@ While we can *load* GGUF files (like text encoders) perfectly, the **quantizatio
 
 ---
 
-## 3. Ovi 1.1 Upgrades
+## 3. Tiled VAE Decoding
+
+**Date:** 2025-11-15  
+**Goal:** Decode high-res (960x960) video latents without OOM on memory-constrained systems.
+
+### The Problem
+Decoding a 10-second video latent (shape `[1, 16, 61, 120, 120]`) requires a massive amount of contiguous VRAM for the 3D convolution operations in the VAE decoder. This frequently causes OOM even on high-end cards.
+
+### The Solution: Spatial Tiling
+We implemented a custom `_tiled_decode` method in `ovi/modules/vae2_2.py` inspired by similar techniques in standard SD/SDXL VAEs but adapted for 3D Video VAEs.
+
+**Mechanism:**
+1.  **Grid Splitting:** The input latent tensor is split into smaller spatial tiles (e.g., `256x256` latents) with overlap.
+2.  **Probing:** A small "probe" decode runs first to determine the exact output scaling factors.
+3.  **Accumulation:** An output buffer (on GPU or CPU) accumulates the decoded tiles.
+4.  **Blending:** Overlapping regions are averaged to prevent visible seams.
+
+**Configuration:**
+- Controlled via `OVI_VAE_TILE_SIZE` env var.
+- Setting it to `256` reduces peak memory usage drastically (at the cost of speed).
+
+### Status: ✅ COMPLETED
+
+---
+
+## 4. Ovi 1.1 Upgrades
 
 **Date:** 2025-11-15
 
@@ -93,7 +119,7 @@ We synced with the official Ovi 1.1 release but kept our ROCm-specific optimizat
 
 ---
 
-## 4. FP8 & Model Availability
+## 5. FP8 & Model Availability
 
 **Date:** 2025-11-15
 
@@ -109,7 +135,7 @@ It doesn't exist. Character.AI only released FP8 for the base 5s model.
 
 ---
 
-## 5. Node Loading Crisis
+## 6. Node Loading Crisis
 
 **Date:** 2025-11-16
 

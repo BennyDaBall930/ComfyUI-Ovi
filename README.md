@@ -90,7 +90,16 @@ pause
 - **`HIP_HOST_COHERENT=1`**: Enables Zero-Copy for unified memory, reducing overhead between CPU and GPU portions of the APU.
 - **`TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1`**: Enables Flash Attention (via AOTriton) support, which is otherwise disabled by default on Windows ROCm.
 - **`MIOPEN_DEBUG_CONV_DIRECT_NAIVE_CONV_FWD=1`**: Forces a naive convolution path in MIOpen, which fixes specific VAE decoding crashes.
-- **`OVI_VAE_TILE_SIZE=256`**: Reduces tile size for VAE decoding to manage peak memory usage.
+- **`OVI_VAE_TILE_SIZE=256`**: Controls the spatial tile size for VAE decoding. Smaller values (128-256) drastically reduce peak VRAM during decode but are slower. Set to `0` to disable tiling.
+
+### 3. Tiled VAE Decoding (The Memory Saver)
+We implemented a custom **Tiled VAE Decoder** to handle high-resolution (960x960) video decoding without OOM.
+
+- **How it works:** Splits the latent tensor into overlapping spatial tiles, decodes them individually, and blends them back together.
+- **Why:** Standard 3D VAE decoding requires massive contiguous VRAM (30GB+ for 10s videos). Tiling breaks this down to manageable chunks (<5GB).
+- **Configuration:**
+  - `OVI_VAE_TILE_SIZE`: Size of the spatial tile (default: `0`/disabled). Recommended: `256` for 16GB cards, `384` for 24GB.
+  - `OVI_VAE_DEBUG=1`: Enable to see tiling progress in logs.
 
 ## 🐛 Troubleshooting
 
