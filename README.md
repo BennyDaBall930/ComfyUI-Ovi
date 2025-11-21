@@ -34,48 +34,76 @@ This is a modified version of **ComfyUI-Ovi** designed to run on AMD hardware (s
 
 ROCm on Windows is like a cat; it does what it wants unless you give it very specific instructions. Here is how to wrangle it, especially for Strix Halo.
 
-### 1. The "I Am Strix Halo" Variables
-If PyTorch refuses to acknowledge your shiny new APU, you might need to force the GFX version. Set these in your environment or bat file before launching ComfyUI.
+### 1. The "I Am Strix Halo" Variables (Launch ComfyUI.bat)
+If PyTorch refuses to acknowledge your shiny new APU, you might need to force the GFX version. We also use aggressive memory settings to prevent fragmentation on unified memory.
 
-```bat
-:: For Strix Halo (Ryzen AI Max+ 395)
-:: Try 11.5.1 first. If that fails, lie and say it's 11.5.0.
-set HSA_OVERRIDE_GFX_VERSION=11.5.1
-```
-
-### 2. Memory Management (Critical for APUs)
-Since your "VRAM" is just system RAM that took a gym class, you need to manage fragmentation.
-```bat
-:: Helps prevent fragmentation when your VRAM is actually system RAM
-set PYTORCH_HIP_ALLOC_CONF=garbage_collection_threshold:0.8,max_split_size_mb:512
-```
-
-### 3. Recommended ComfyUI Launch Flags
-Add these to your `python main.py` command:
-
-- `--use-pytorch-cross-attention`: **Highly Recommended.** ROCm generally prefers this over the custom optimization paths that NVIDIA cards use.
-- `--force-fp32`: If VAEs are still crashing despite our internal fixes, this global flag might save you.
-- **DO NOT USE** `--directml`. We are using native ROCm. Do not insult the hardware.
-
-**Example `run_ovi.bat`:**
 ```bat
 @echo off
+echo ========================================
+echo Starting ComfyUI [WINDOWS - STRIX HALO OPTIMIZED]
+echo GMKtec Evo-X2 - AMD Ryzen AI Max+ 395
+echo Unified Memory Architecture
+echo ========================================
+
+REM ===== Memory Management - Unified APU Mode =====
+REM Enable Zero-Copy: Allows CPU to write directly to GPU memory (Best for APUs)
+set HIP_HOST_COHERENT=1
+set HSA_ENABLE_INTERRUPT=0
+
+REM Aggressive Allocator: 8GB splits + Lazy Garbage Collection (80%)
+REM Prevents fragmentation on huge 100GB+ pool; delays cleanup to save bandwidth
+set PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True,max_split_size_mb:8192,garbage_collection_threshold:0.8
+set PYTORCH_HIP_ALLOC_CONF=expandable_segments:True,max_split_size_mb:8192,garbage_collection_threshold:0.8
+
+REM ===== ROCm Device Settings =====
+REM Force gfx1151 to load ROCm kernels and fix MIOpen VAE failures
 set HSA_OVERRIDE_GFX_VERSION=11.5.1
-set PYTORCH_HIP_ALLOC_CONF=garbage_collection_threshold:0.8,max_split_size_mb:512
-python main.py --use-pytorch-cross-attention
+set MIOPEN_DEBUG_CONV_DIRECT_NAIVE_CONV_FWD=1
+REM Enable experimental AOTriton kernels required for SDPA on ROCm
+set TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1
+
+REM ===== Threading Optimization =====
+REM Set to Physical Cores (e.g., 16) to avoid logical thread scheduler thrashing
+set OMP_NUM_THREADS=16
+set MKL_NUM_THREADS=16
+set OPENBLAS_NUM_THREADS=16
+set TORCH_NUM_THREADS=16
+
+REM ===== OVI Specific Debug Flags =====
+REM set OVI_VAE_FORCE_DTYPE=fp16  (Use if you feel lucky)
+set OVI_VAE_DEBUG=1
+set OVI_ENGINE_DEBUG=1
+set OVI_VAE_TILE_SIZE=256
+REM set OVI_VAE_DECODE_ON_CPU=1 (Uncomment if VRAM is tight, but Strix Halo usually handles it)
+
+echo Activating Python environment...
+call .venv\Scripts\activate.bat
+
+echo Launching ComfyUI...
+python main.py --preview-method auto --highvram --use-pytorch-cross-attention --listen 0.0.0.0
 pause
 ```
+
+### 2. Key Flags Explained
+
+- **`HSA_OVERRIDE_GFX_VERSION=11.5.1`**: Forces the runtime to treat your GPU as gfx1151 (Strix Halo). Critical for detection.
+- **`HIP_HOST_COHERENT=1`**: Enables Zero-Copy for unified memory, reducing overhead between CPU and GPU portions of the APU.
+- **`TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1`**: Enables Flash Attention (via AOTriton) support, which is otherwise disabled by default on Windows ROCm.
+- **`MIOPEN_DEBUG_CONV_DIRECT_NAIVE_CONV_FWD=1`**: Forces a naive convolution path in MIOpen, which fixes specific VAE decoding crashes.
+- **`OVI_VAE_TILE_SIZE=256`**: Reduces tile size for VAE decoding to manage peak memory usage.
 
 ## 🐛 Troubleshooting
 
 **"It crashed during VAE decode!"**
-- It shouldn't. We forced it to `float32`. If it still crashes, your VRAM is probably crying. Try the FP8 weights or buy more RAM.
+- It shouldn't. We forced it to `float32` by default. If you set `OVI_VAE_FORCE_DTYPE=fp16`, try unsetting it.
+- Ensure `MIOPEN_DEBUG_CONV_DIRECT_NAIVE_CONV_FWD=1` is set.
 
 **"I'm running out of memory!"**
-- We added aggressive garbage collection, but Strix Halo (gfx1151) unified memory is a shared resource. Close Chrome. Yes, all the tabs.
+- Unified memory is shared. Close Chrome.
+- Check `PYTORCH_HIP_ALLOC_CONF`. The `garbage_collection_threshold:0.8` helps delays fragmentation cleanup, but `max_split_size_mb:8192` ensures large contiguous blocks are preserved.
 
 **"Flash Attention isn't working!"**
-- It's ROCm on Windows. We try to use AOTriton. If that fails, we fall back to SDPA or vanilla attention. It's not a bug, it's a "feature" of the ecosystem.
+- It's ROCm on Windows. We try to use AOTriton (`TORCH_ROCM_AOTRITON_ENABLE_EXPERIMENTAL=1`). If that fails, we fall back to SDPA or vanilla attention.
 
 ## ⚖️ Credits
 - Original Ovi implementation by Character.AI.
