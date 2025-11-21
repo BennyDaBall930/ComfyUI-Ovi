@@ -119,11 +119,14 @@ We are actively working on GGUF quantization to help users with 16GB-24GB cards 
 - **Docs:** See `tools/QUANTIZATION_SETUP.md` for instructions on how to build `llama.cpp` and quantize Ovi models to Q4_K_M.
 - **Goal:** Reduce the ~23GB BF16 model to ~6.5GB (Q4_K_M), saving ~70% VRAM.
 
-**Quick Start (for the brave):**
-1. Navigate to `custom_nodes/ComfyUI-Ovi/tools`
-2. Follow the steps in `QUANTIZATION_SETUP.md` to build `llama.cpp`.
-3. Use `quantize_ovi_model.py` to convert your `.safetensors` to `.gguf`.
-4. Load the GGUF model in the Ovi Loader (GGUF loading support is in development).
+**Current Capabilities:**
+- **Text Encoder:** ✅ Fully supported! You can load GGUF quantized T5 encoders right now.
+- **Ovi Engine:** 🚧 **Help Wanted!** We have the GGUF file (you can make it with our tools), but the engine loader needs some love to properly digest it. The code is there, but it needs a hero to finish the implementation.
+
+**How to Help:**
+1. Check `tools/QUANTIZATION_SETUP.md` to build `llama.cpp` and create your own GGUF models.
+2. Use `quantize_ovi_model.py` to convert `.safetensors` to `.gguf`.
+3. Dive into `ovi/ovi_fusion_engine.py` and help us cross the finish line for GGUF engine loading!
 
 ---
 *Disclaimer: This software is provided "as is". If it melts your GPU or becomes sentient, I'm not responsible.*
