@@ -42,7 +42,7 @@ We implemented an **All-GPU Mode** with aggressive cleanup:
 
 ## 2. GGUF Quantization Saga
 
-**Date:** 2025-01-16
+**Date:** 2025-11-16
 
 ### Goal
 Run the massive 10s Ovi model on consumer GPUs (16-24GB) by shrinking the ~23GB model to ~7GB.
@@ -51,12 +51,18 @@ Run the massive 10s Ovi model on consumer GPUs (16-24GB) by shrinking the ~23GB 
 - **GGUF Loading:** Successfully implemented loading for `.gguf` files using `comfyui-gguf` logic.
 - **Text Encoder:** Full support for quantized T5 encoders (Q4_K, Q8_0).
     - *Savings:* Reduces text encoder from 15GB -> 4GB.
+    - *Implementation:* Modified `ovi/modules/t5.py` to use `gguf_clip_loader` when detecting `.gguf` extension. Added lazy imports to prevent dependency crashes.
 - **Q4_K Dequantization:** Ported block-based dequantization to fix shape mismatch errors.
     - *Original Error:* `size mismatch... shape [3072, 1728] vs [3072, 3072]`
-    - *Fix:* Implemented proper block unpacking.
+    - *Root Cause:* Simple dequantization returns the compressed block shape, not the logical parameter shape.
+    - *Fix:* Implemented `dequantize_tensor` in `ovi/utils/ggml_dequant.py` which properly handles Q4_K block structure (256 elements per block, d/dmin/scales/quants layout) and reshapes to the target dimensions.
+- **File Detection:** Updated `checkpoint_manager.py` and `ovi_wan_component_loader.py` to automatically recognize and list `.gguf` files in the UI.
 
 ### The Current Hurdle (Help Wanted!)
-While we can *load* GGUF files, the **quantization tool** itself (`quantize_ovi_model.py`) struggles with Ovi's unique twin-backbone architecture. We need help ensuring the tensors are packed correctly so the loader doesn't choke on them.
+While we can *load* GGUF files (like text encoders) perfectly, the **quantization tool** (`quantize_ovi_model.py`) for the main fusion engine is incomplete.
+- **Issue:** Ovi uses a unique twin-backbone architecture (Audio + Video streams). Standard conversion scripts don't know how to pack these specific tensor structures correctly.
+- **Result:** We can create a GGUF file, but the loader might misinterpret the tensor mapping for the fusion layers.
+- **Call to Action:** We need a contributor to map the Ovi fusion tensors to the GGUF key-value structure so `quantize_ovi_model.py` produces valid files.
 
 ### VRAM Savings (Projected)
 | Model | BF16 | GGUF Q4_K | Savings |
