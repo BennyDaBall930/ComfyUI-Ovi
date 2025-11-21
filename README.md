@@ -120,13 +120,14 @@ We are actively working on GGUF quantization to help users with 16GB-24GB cards 
 - **Goal:** Reduce the ~23GB BF16 model to ~6.5GB (Q4_K_M), saving ~70% VRAM.
 
 **Current Capabilities:**
-- **Text Encoder:** ✅ Fully supported! You can load GGUF quantized T5 encoders right now.
-- **Ovi Engine:** 🚧 **Help Wanted!** We have the GGUF file (you can make it with our tools), but the engine loader needs some love to properly digest it. The code is there, but it needs a hero to finish the implementation.
+- **Ovi Engine Loading:** ✅ **Supported!** The fusion loader is ready to load GGUF files.
+- **Text Encoder:** ✅ **Supported!** You can load GGUF quantized T5 encoders right now.
+- **Quantization Tool:** 🚧 **Help Wanted!** This is where we need you. Our quantization script (`quantize_ovi_model.py`) struggles with Ovi's unique twin-backbone (Audio/Video) architecture. It needs to be updated to properly handle and pack the specific tensor structure of the Ovi engine into a valid GGUF file.
 
 **How to Help:**
-1. Check `tools/QUANTIZATION_SETUP.md` to build `llama.cpp` and create your own GGUF models.
-2. Use `quantize_ovi_model.py` to convert `.safetensors` to `.gguf`.
-3. Dive into `ovi/ovi_fusion_engine.py` and help us cross the finish line for GGUF engine loading!
+1. Check `tools/QUANTIZATION_SETUP.md` for the current setup.
+2. Dive into `tools/quantize_ovi_model.py` and help us figure out the correct tensor mapping for the twin backbone.
+3. Successfully create a working GGUF file that the loader accepts!
 
 ---
 *Disclaimer: This software is provided "as is". If it melts your GPU or becomes sentient, I'm not responsible.*
